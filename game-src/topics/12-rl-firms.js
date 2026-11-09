@@ -65,3 +65,37 @@ RL.lv.firms = {
     { id: 'firms-r7', sub: 'profit', type: 'mcq', scn: 'A supermarket chain pays less per tin because it buys millions; another chain uses the same lorries to deliver groceries and electronics.', q: 'Which pair of terms fits (in order)?', opts: ['Economies of scope, then economies of scale', 'Economies of scale, then economies of scope', 'Diminishing returns, then constant returns', 'Diseconomies of scale both times'], a: 1, why: 'Buying in bulk lowers cost per unit as you grow: economies of scale. Sharing resources across different products: economies of scope.' }
   ]
 };
+
+/* Extra card: why cost curves are U-shaped (real numbers), and why D and S can be straight lines. */
+RL.lv.firms.extraCards = [{
+  after: 'firms-c4',
+  card: (() => {
+    const FC = 8, VC = q => q ** 3 - 6 * q ** 2 + 14 * q, MCf = q => 3 * q * q - 12 * q + 14, ACf = q => q * q - 6 * q + 14 + FC / q;
+    const f1 = n => (Math.round(n * 100) / 100).toString();
+    const rows = [1, 2, 3, 4, 5, 6].map(q => ({ q, vc: VC(q), tc: VC(q) + FC, mc: VC(q) - VC(q - 1), ac: (VC(q) + FC) / q }));
+    const best = rows.reduce((a, b) => (b.ac < a.ac ? b : a));
+    const pts = (fn, a, b, n) => { const o = []; for (let i = 0; i <= n; i++) { const x = a + (b - a) * i / n; o.push([x, fn(x)]); } return o; };
+    const chart = () => DG.chart({
+      xmax: 7, ymax: 24, xlabel: 'Output (batches of 10 cups per hour)', ylabel: 'Cost per batch (€)', alt: 'U-shaped MC and AC with numbers',
+      lines: [{ p: pts(MCf, 0.2, 4.7, 40), label: 'MC', c: 2, lx: 4.7, ly: MCf(4.7) }, { p: pts(ACf, 0.7, 5.6, 40), label: 'AC', c: 0, lx: 5.6, ly: ACf(5.6) }],
+      pts: [{ x: 3.3, y: ACf(3.3), label: '', xt: '3.3', yt: '€7.51', g: 'xy' }],
+      caption: 'Table values: MC (€) 9 → 3 → 3 → 9 → 21 → 39 &nbsp;·&nbsp; AC (€) 17 → 10 → 7.67 → 8 → 10.6 → 15.3.<br>The curves are the smooth version of the same table. The lowest point of AC is at about 3.3 batches (€7.51), exactly where MC crosses it.'
+    });
+    const table = `<table class="t"><tr><th>Batches q</th><th>Variable cost</th><th>Total cost (FC = €8)</th><th>MC (extra cost of this batch)</th><th>AC (TC ÷ q)</th></tr>${rows.map(r => `<tr><td>${r.q}</td><td>€${r.vc}</td><td>€${r.tc}</td><td><b>€${r.mc}</b></td><td>€${f1(r.ac)}</td></tr>`).join('')}</table>`;
+    const wtp = `<table class="t"><tr><th>Friend</th><th>Most they would pay for a gig ticket</th><th>If the price is €40, do they buy?</th></tr><tr><td>Ana</td><td>€50</td><td>yes</td></tr><tr><td>Ben</td><td>€45</td><td>yes</td></tr><tr><td>Cal</td><td>€40</td><td>yes</td></tr><tr><td>Dee</td><td>€35</td><td>no</td></tr><tr><td>Eli</td><td>€30</td><td>no</td></tr></table>`;
+    return {
+      id: 'firms-c4b', sub: 'mcac', title: 'Why are cost curves U-shaped (but demand and supply straight)?',
+      html: `<p><b>Maya\'s cart in real numbers.</b> Output is in batches of 10 cups an hour. Her fixed cost is €8 an hour, and the extra (variable) cost of each batch is below.</p>${table}
+        <p>Look at the <b>MC column</b>: €9, €3, €3, €9, €21, €39. It <b>falls first</b> (Maya alone is slow at everything; with a second and third person each does one job, so extra batches are cheap), then <b>rises</b> (the cart is tiny, people queue for the one machine, overtime kicks in). That is diminishing returns.</p>
+        <p>Now the <b>AC column</b>: €17, €10, €7.67, €8, €10.6, €15.3. Two forces fight:</p>
+        <ul><li><b>Pulling AC down:</b> the €8 fixed cost is shared across more cups (€8 ÷ 1 = €8, but €8 ÷ 4 = €2 per batch). And while MC is below AC, each new batch is cheaper than the average, so the average falls.</li><li><b>Pushing AC up:</b> once MC climbs above AC (from the 4th batch on, MC €9 &gt; AC €7.67), every new batch drags the average up.</li></ul>
+        <p>That tug-of-war is what makes the average cost curve a <b>U</b>, with its bottom (about €${f1(best.ac)} at 3 batches here) exactly where MC crosses AC.</p>${chart()}
+        <p><b>So why are demand and supply lines straight?</b> They mostly aren\'t. Straight lines are a <b>simplification</b> so that the maths stays easy (one slope, one intercept). Real curves are curved. Two good reasons they look like downward lines anyway:</p>
+        <ul><li><b>Demand</b> adds up lots of different people, each with their own "most I would pay". Line up five friends and you get a staircase; with thousands of people the steps blur into a smooth downward line.</li></ul>${wtp}
+        <ul><li><b>Supply</b> is built from many firms\' marginal cost curves (a firm\'s supply curve is its MC curve above AVC). Each of those curves is U-shaped at the bottom and rises steeply at the top, so the market supply line slopes upward too. We draw it straight to keep the maths simple.</li></ul>
+        <div class="note">The key difference: <b>demand and supply describe a whole market</b> (many people, one price). <b>AC and MC describe one firm</b> producing more and more with a fixed setup (cart, kitchen, machine). One firm\'s costs have a U-shape because of fixed costs and diminishing returns; a whole market doesn\'t need one.</div>`,
+      tip: 'If asked "why is AC U-shaped?", write two lines: (1) at low output fixed cost is spread over more units and MC &lt; AC, so AC falls; (2) at high output diminishing returns push MC above AC, so AC rises. MC cuts AC at its lowest point.',
+      check: { type: 'mcq', q: 'At 4 batches Maya\'s average cost is €8. The 5th batch has a marginal cost of €21. What happens to her average cost when she makes the 5th batch?', opts: ['It falls, because fixed cost is spread thinner', 'It rises, because the new batch costs more (€21) than the current average (€8)', 'It stays at €8', 'It becomes €21'], a: 1, why: 'Whenever MC is above AC the average is pulled up. Her AC goes from €8 (4 batches) to €10.6 (5 batches): total cost €53 ÷ 5.' }
+    };
+  })()
+}];

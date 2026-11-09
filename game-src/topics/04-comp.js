@@ -14,7 +14,7 @@ TOPICS.push((() => {
   });
   const csps = () => DG.chart({
     xmax: 12, ymax: 13, xlabel: 'Quantity', ylabel: 'Price (€)', alt: 'consumer and producer surplus',
-    polys: [{ p: [[0, 12], [0, 7], [5, 7]], c: 0, label: 'CS', lx: 1.6, ly: 8.6 }, { p: [[0, 2], [0, 7], [5, 7]], c: 1, label: 'PS', lx: 1.6, ly: 5.4 }],
+    polys: [{ p: [[0, 12], [0, 7], [5, 7]], c: 0, label: 'CS = €12.5', lx: 1.9, ly: 8.6 }, { p: [[0, 2], [0, 7], [5, 7]], c: 1, label: 'PS = €12.5', lx: 1.9, ly: 5.4 }],
     lines: [{ p: [[0, 12], [12, 0]], label: 'D', c: 0, lx: 11.3, ly: 0.9 }, { p: [[0, 2], [10, 12]], label: 'S', c: 1, lx: 9.5, ly: 11.6 }],
     pts: [{ x: 5, y: 7, label: 'E', xt: 'Q*', yt: 'P*' }]
   });

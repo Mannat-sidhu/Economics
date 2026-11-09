@@ -26,7 +26,7 @@ function checkBoss(b, w) {
 }
 TOPICS.forEach(t => {
   const rl = RL.lv[t.id];
-  if (rl) { Object.keys(rl.card || {}).forEach(k => { if (!t.cards.some(c => c.id === k)) bad(t.id + ' RL card id not found: ' + k); }); Object.keys(rl.hints || {}).forEach(k => { if (!t.boss.questions.some(q => q.parts.some((p, i) => q.id + '.' + i === k))) bad(t.id + ' hint key not found: ' + k); }); if (rl.story) t.cards.unshift({ id: t.id + '-story', title: rl.story.title, html: rl.story.html, check: rl.story.check }); (rl.extra || []).forEach(q => { if (q.skip) bad(t.id + ' extra Q must not be skip: ' + q.id); t.questions.push(q); }); }
+  if (rl) { (rl.extraCards || []).forEach(x => { const i = t.cards.findIndex(c => c.id === x.after); if (i < 0) bad(t.id + ' extraCard anchor missing ' + x.after); t.cards.splice(i + 1, 0, x.card); }); Object.keys(rl.card || {}).forEach(k => { if (!t.cards.some(c => c.id === k)) bad(t.id + ' RL card id not found: ' + k); }); Object.keys(rl.hints || {}).forEach(k => { if (!t.boss.questions.some(q => q.parts.some((p, i) => q.id + '.' + i === k))) bad(t.id + ' hint key not found: ' + k); }); if (rl.story) t.cards.unshift({ id: t.id + '-story', title: rl.story.title, html: rl.story.html, check: rl.story.check }); (rl.extra || []).forEach(q => { if (q.skip) bad(t.id + ' extra Q must not be skip: ' + q.id); t.questions.push(q); }); }
   const w = t.id; if (!t.subs) bad(w + ' no subs');
   const nsk = t.questions.filter(q => q.skip).length; if (nsk !== 10) bad(`${w} has ${nsk} skip questions (need 10)`);
   if (t.questions.length < 14) bad(`${w} only ${t.questions.length} questions`);

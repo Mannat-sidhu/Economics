@@ -26,6 +26,7 @@
     const r = RL.lv[t.id]; if (!r) return;
     Object.assign(RL.card, r.card || {});
     if (r.story) t.cards.unshift({ id: t.id + '-story', sub: null, title: r.story.title, story: true, html: r.story.html, tip: r.story.tip, check: r.story.check });
+    (r.extraCards || []).forEach(x => { const i = t.cards.findIndex(c => c.id === x.after); t.cards.splice(i + 1, 0, x.card); });
     (r.extra || []).forEach(q => t.questions.push(Object.assign({ real: true }, q)));
   });
   const rank = () => { let r = RANKS[0][1]; RANKS.forEach(x => { if (S.xp >= x[0]) r = x[1]; }); return r; };

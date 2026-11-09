@@ -4,38 +4,67 @@ const DG = (() => {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   // chart({xlabel,ylabel,xmax,ymax,lines:[{p:[[x,y]..],label,c,dash,lx,ly,anchor}],polys:[{p,c,label,lx,ly}],pts:[{x,y,label,g:'xy'|'x'|'y'|'',dx,dy,xt,yt}],texts:[{x,y,t,anchor}],xticks:[{v,t}],yticks:[{v,t}]})
   function chart(o) {
-    const W = o.w || 460, H = o.h || 340, L = 56, R = 26, T = 16, B = 50;
+    const W = o.w || 460, H = o.h || 340, L = 78, R = 26, T = 16, B = 50;
     const xm = o.xmax || 10, ym = o.ymax || 10;
     const X = x => f(L + (W - L - R) * x / xm), Y = y => f(H - B - (H - T - B) * y / ym);
+    const fmt = n => { const r = Math.round(n * 1000) / 1000; return String(r).replace('-', '−'); };
+    const isP = /price|€/i.test(o.ylabel || 'Price'), cur = /€/.test(o.ylabel || '') ? '€' : '';
+    const step = m => { for (const k of [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]) if (m / k <= 9) return k; return 1000; };
+    const pts = o.pts || [];
+    const pxs = pts.filter(p => p.xt && (p.g == null ? 'xy' : p.g).includes('x')), pys = pts.filter(p => p.yt && (p.g == null ? 'xy' : p.g).includes('y'));
     let s = `<svg class="dg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.alt || 'economics diagram')}">`;
+    // numeric axes: faint grid, tick marks and values (skipped where a labelled point already shows its own number)
+    if (!o.xticks) for (let v = 0; v <= xm + 1e-9; v += step(xm)) {
+      s += `<line class="grid" x1="${X(v)}" y1="${T}" x2="${X(v)}" y2="${H - B}"/>`;
+      if (!pxs.some(p => Math.abs(X(p.x) - X(v)) < 34)) s += `<text x="${X(v)}" y="${H - B + 15}" text-anchor="middle" class="small">${fmt(v)}</text>`;
+    }
+    if (!o.yticks) for (let v = 0; v <= ym + 1e-9; v += step(ym)) {
+      s += `<line class="grid" x1="${L}" y1="${Y(v)}" x2="${W - R}" y2="${Y(v)}"/>`;
+      if (!pys.some(p => Math.abs(Y(p.y) - Y(v)) < 14)) s += `<text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" class="small">${cur}${fmt(v)}</text>`;
+    }
     (o.polys || []).forEach(p => {
       s += `<polygon class="f${p.c || 0}" points="${p.p.map(q => X(q[0]) + ',' + Y(q[1])).join(' ')}"/>`;
       if (p.label) s += `<text x="${X(p.lx)}" y="${Y(p.ly)}" text-anchor="middle" class="h">${esc(p.label)}</text>`;
     });
     s += `<path class="ax" d="M${L} ${T - 4} V${H - B} H${W - R + 6}"/>`;
-    s += `<text x="${(L + W - R) / 2}" y="${H - 10}" text-anchor="middle">${esc(o.xlabel || 'Quantity')}</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - 5}" text-anchor="middle">${esc(o.xlabel || 'Quantity')}</text>`;
     s += `<text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle">${esc(o.ylabel || 'Price')}</text>`;
     (o.xticks || []).forEach(t => s += `<text x="${X(t.v)}" y="${H - B + 15}" text-anchor="middle" class="small">${esc(t.t)}</text>`);
     (o.yticks || []).forEach(t => s += `<text x="${L - 6}" y="${Y(t.v) + 4}" text-anchor="end" class="small">${esc(t.t)}</text>`);
+    const eqs = [];
+    const xs = /firm|stall/i.test(o.xlabel || '') ? 'q' : 'Q';
     (o.lines || []).forEach(l => {
       s += `<polyline class="ln c${l.c || 0}" ${l.dash ? 'stroke-dasharray="6 4"' : ''} points="${l.p.map(q => X(q[0]) + ',' + Y(q[1])).join(' ')}"/>`;
       if (l.label) {
         const e = l.p[l.p.length - 1];
         const lx = l.lx != null ? l.lx : e[0], ly = l.ly != null ? l.ly : e[1];
         s += `<text x="${X(lx) + 5}" y="${Y(ly) + 4}" class="h" text-anchor="${l.anchor || 'start'}" style="fill:var(--${['pen', 'amber', 'bad', 'good', 'muted'][l.c || 0]})">${esc(l.label)}</text>`;
+        // straight lines named D, S, MR... get their equation under the chart
+        if (isP && o.eq !== false && l.p.length === 2 && /^(D|S|MR|D\d|S\d)\b/.test(l.label) && l.p[1][0] !== l.p[0][0]) {
+          const m = (l.p[1][1] - l.p[0][1]) / (l.p[1][0] - l.p[0][0]), b = l.p[0][1] - m * l.p[0][0];
+          const slope = Math.abs(m) === 1 ? xs : fmt(Math.abs(m)) + xs;
+          let t = Math.abs(b) < 1e-9 ? (m < 0 ? '−' : '') + slope : fmt(b) + (m < 0 ? ' − ' : ' + ') + slope;
+          if (Math.abs(m) < 1e-9) t = fmt(b);
+          eqs.push(`${l.label.split(' ')[0]}: P = ${t}`);
+        }
       }
     });
-    (o.pts || []).forEach(p => {
+    // stagger neighbouring x-axis value labels onto a second row so they never collide
+    const rowOf = new Map(), lastX = [-999, -999];
+    pxs.slice().sort((a, b) => a.x - b.x).forEach(p => { let r = 0; while (r < 2 && X(p.x) - lastX[r] < 66) r++; r = Math.min(r, 1); lastX[r] = X(p.x); rowOf.set(p, r); });
+    pts.forEach(p => {
       const g = p.g == null ? 'xy' : p.g;
       if (g.includes('x')) s += `<line class="gd" x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(p.x)}" y2="${H - B}"/>`;
       if (g.includes('y')) s += `<line class="gd" x1="${L}" y1="${Y(p.y)}" x2="${X(p.x)}" y2="${Y(p.y)}"/>`;
       s += `<circle class="pt" cx="${X(p.x)}" cy="${Y(p.y)}" r="3.6"/>`;
       if (p.label) s += `<text x="${X(p.x) + (p.dx != null ? p.dx : 7)}" y="${Y(p.y) + (p.dy != null ? p.dy : -7)}">${esc(p.label)}</text>`;
-      if (p.xt && g.includes('x')) s += `<text x="${X(p.x)}" y="${H - B + 15}" text-anchor="middle">${esc(p.xt)}</text>`;
-      if (p.yt && g.includes('y')) s += `<text x="${L - 6}" y="${Y(p.y) + 4}" text-anchor="end">${esc(p.yt)}</text>`;
+      const named = t => /=|≈|^[\d€.]|\d{2}|\d\.\d/.test(t);
+      if (p.xt && g.includes('x')) s += `<text x="${X(p.x)}" y="${H - B + 15 + 12 * (rowOf.get(p) || 0)}" text-anchor="middle" class="pv">${esc(named(p.xt) ? p.xt : p.xt + ' = ' + fmt(p.x))}</text>`;
+      if (p.yt && g.includes('y')) s += `<text x="${L - 6}" y="${Y(p.y) + 4}" text-anchor="end" class="pv">${esc(named(p.yt) ? p.yt : p.yt + ' = ' + cur + fmt(p.y))}</text>`;
     });
     (o.texts || []).forEach(t => s += `<text x="${X(t.x)}" y="${Y(t.y)}" text-anchor="${t.anchor || 'middle'}" ${t.cls ? `class="${t.cls}"` : ''}>${esc(t.t)}</text>`);
-    return s + '</svg>';
+    s += '</svg>';
+    return s + (eqs.length ? `<div class="eqs">${eqs.join(' &nbsp;·&nbsp; ')}</div>` : '') + (o.caption ? `<div class="eqs">${o.caption}</div>` : '');
   }
   // matrix({rowName,colName,rows:[..],cols:[..],cells:[[[a,b],..],..],hl:[[r,c]..],unit})
   function matrix(o) {

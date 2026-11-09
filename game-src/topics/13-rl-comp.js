@@ -1,11 +1,28 @@
 /* Real-life layer for Level 4: Perfect Competition. Story first, plain-English steps, everyday spot-it questions. */
+/* Tomato numbers: 40 stalls; stall MC = 0.2q + 1; fixed cost 10/day -> AC min = €3 at 10 kg. Heatwave adds 300 kg of demand at every price. */
+const tomato = (() => {
+  const AC = q => 0.1 * q + 1 + 10 / q;
+  const market = () => DG.chart({
+    xmax: 800, ymax: 10, xlabel: 'Kilos of tomatoes per day (whole market)', ylabel: 'Price (€ per kg)', alt: 'tomato market with numbers',
+    lines: [{ p: [[0, 1], [800, 5]], label: 'S', c: 1, lx: 800, ly: 5 }, { p: [[100, 0], [800, 3.5]], label: 'S2', c: 3, lx: 800, ly: 3.5 }, { p: [[0, 7], [700, 0]], label: 'D1', c: 0, lx: 700, ly: 0.4 }, { p: [[0, 10], [800, 2]], label: 'D2', c: 2, lx: 800, ly: 2 }],
+    pts: [{ x: 400, y: 3, label: 'E1', xt: 'Q1', yt: 'P1' }, { x: 600, y: 4, label: 'E2', xt: 'Q2', yt: 'P2' }, { x: 700, y: 3, label: 'E3', xt: 'Q3', g: 'x' }]
+  });
+  const stall = () => DG.chart({
+    xmax: 20, ymax: 6, xlabel: 'Kilos per day (Priya\'s stall)', ylabel: 'Price / cost per kg (€)', alt: 'one tomato stall with numbers',
+    polys: [{ p: [[0, AC(15)], [15, AC(15)], [15, 4], [0, 4]], c: 3, label: 'Profit €12.50', lx: 7.5, ly: 3.6 }],
+    lines: [{ p: [[0, 1], [20, 5]], label: 'MC', c: 2, lx: 20, ly: 5 }, { p: Array.from({ length: 36 }, (_, i) => [3 + i * 0.5, AC(3 + i * 0.5)]), label: 'AC', c: 0, lx: 20, ly: 3.5 }, { p: [[0, 3], [20, 3]], label: '', c: 4, dash: true }, { p: [[0, 4], [20, 4]], label: '', c: 4, dash: true }],
+    pts: [{ x: 10, y: 3, xt: 'q', g: 'x', label: '' }, { x: 15, y: 4, xt: 'q', g: 'x', label: '' }]
+  });
+  return { market, stall };
+})();
+
 RL.lv.comp = {
   story: {
     title: 'Saturday at the Elm Street market',
     html: `<p>Every Saturday, forty stalls line up on Elm Street selling tomatoes. They all look the same, taste the same, and cost <b>€3 a kilo</b>.</p>
       <p>Priya runs one stall. One morning she thinks, <i>"I'll charge €3.50 and make more per kilo."</i> Within ten minutes she has sold nothing: shoppers just walk ten steps to the next stall. So Priya goes back to €3. <b>She has no power over the price.</b> The crowd of sellers sets it.</p>
       <p>Then a heatwave hits. Everyone wants salad. Tomatoes sell out fast, shoppers start offering a bit more, and the price at <i>every</i> stall drifts up to €4. Priya's phone buzzes with orders, she brings extra crates, and she earns a lot more than usual.</p>
-      <p>Next month there are fifty-five stalls. Newcomers saw the money being made. With more tomatoes around, the price slides back to €3 and Priya earns a normal living again.</p>
+      <p>Next month there are seventy stalls. Newcomers saw the money being made. With more tomatoes around, the price slides back to €3 and Priya earns a normal living again.</p>
       <p>That whole story <i>is</i> perfect competition: price set by the crowd, profits that attract newcomers, and newcomers that wipe the extra profit out.</p>`,
     tip: 'Perfect competition is the "ideal" market every other level is compared against. If you can retell the tomato story in your own words, you can answer most questions in this level.'
   },
@@ -39,7 +56,16 @@ RL.lv.comp = {
       plain: 'When customers suddenly want more, the whole market price goes up, one stall copies the price and sells more, but extra profit attracts new stalls and the price drifts back.',
       icon: '🌡️', stitle: 'Picture this: the heatwave',
       story: `<p>Elm Street market: 40 tomato stalls, €3 a kilo. A heatwave arrives and everyone wants salad.</p><p><b>The market</b> (the whole street) sees shoppers hunting for tomatoes, so prices at every stall creep to €4 and more kilos are sold in total.</p><p><b>One stall (Priya)</b> can't say "I charge €5". She just takes the new €4 price, buys extra crates and sells more. Since €4 is now above her usual cost per kilo, she makes <b>extra profit</b> for now.</p><p><b>A few weeks later</b> newcomers set up stalls to grab the profit. More tomatoes on the street pushes the price back to €3. Priya's profit shrinks back to "normal".</p>`,
-      simple: `<p><b>Two different views of the same event.</b> "Market" = the whole street. "Firm" = one stall.</p><ol><li><b>Event:</b> demand rises (more people want tomatoes at every price). On the market diagram the demand line moves <b>right</b>.</li><li><b>Market, short run:</b> price goes UP, total quantity goes UP.</li><li><b>Firm, short run:</b> the stall's price line (flat, because it's a price taker) moves UP to the new price. The stall makes more (up to where P = MC). Price is now above its average cost, so it earns <b>economic profit</b>.</li><li><b>Long run:</b> outsiders see the profit and join (entry). Market supply moves RIGHT, price falls until it equals the lowest point of average cost (min AC). Profit is back to zero.</li><li><b>If demand falls instead:</b> everything runs backwards: price drops, stalls lose money, some leave (exit), supply moves left, price recovers.</li></ol><p class="muted">"Zero economic profit" is not "no income": the owner still earns what she could have earned elsewhere, because that is counted as a cost.</p>`,
+      simple: `<p><b>Two views of the same event.</b> "Market" = the whole street. "Firm" = one stall (Priya). Here are the real numbers for the tomato heatwave.</p>
+        <table class="t"><tr><th></th><th>Before</th><th>Heatwave (short run)</th><th>A few weeks later (long run)</th></tr>
+        <tr><td>Price per kg</td><td>€3</td><td>€4</td><td>€3</td></tr>
+        <tr><td>Stalls on the street</td><td>40</td><td>40</td><td>70</td></tr>
+        <tr><td>Whole market sells</td><td>400 kg</td><td>600 kg</td><td>700 kg</td></tr>
+        <tr><td>Priya sells</td><td>10 kg</td><td>15 kg</td><td>10 kg</td></tr>
+        <tr><td>Priya\'s extra profit</td><td>€0</td><td>€12.50 a day</td><td>€0</td></tr></table>
+        <ol><li><b>Event:</b> demand rises by 300 kg at every price (D1 → D2 on the market picture: at €3 shoppers now want 700 kg instead of 400).</li><li><b>Market, short run:</b> there aren\'t enough tomatoes at €3, so the price climbs along supply S until buyers and sellers balance at <b>€4 and 600 kg</b> (E1 → E2).</li><li><b>One stall, short run:</b> Priya can\'t set the price, she takes €4. Her extra kilo costs 0.2×q + 1 euros (MC), so she keeps going until that reaches €4: <b>q = 15 kg</b>. Her average cost there is only about €3.17, so each kilo earns about 83c profit: 15 × 0.83 ≈ <b>€12.50 a day</b> (the green box).</li><li><b>Long run:</b> other people see her profit and open 30 more stalls (supply moves right, S → S2). Price slides back to <b>€3</b>; Priya is back to 10 kg and no extra profit, but the market sells more (<b>700 kg</b>).</li></ol>
+        ${tomato.market()}<div class="eqs">D1: demand before · D2: demand after the heatwave · S: supply · S2: supply once the new stalls have opened</div>${tomato.stall()}<div class="eqs">Dashed lines: the €3 and €4 prices. The stall produces where price meets MC.</div>
+        <p class="muted">If demand fell instead, run it backwards: price drops, stalls lose money, some close, supply shifts left, price recovers.</p>`,
       jargon: [['Demand shifts right', 'at every price, more people want the product', 'heatwave and tomatoes'], ['Short run', 'time too short for new firms to arrive', 'this week'], ['Long run', 'time long enough for firms to enter or leave', 'next season'], ['Economic profit', 'profit above what you could earn elsewhere']]
     },
     'comp-c4': {

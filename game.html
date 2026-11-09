@@ -151,6 +151,10 @@ details.full summary{cursor:pointer;font-weight:700;color:var(--pen)}
 .scn{background:var(--pen-soft);border-radius:10px;padding:9px 14px;margin-bottom:12px}
 .hintbox{background:var(--hl);color:var(--hl-ink);border-radius:10px;padding:9px 14px;margin:8px 0}
 .hintbox[hidden]{display:none}
+
+svg.dg .grid{stroke:var(--rule);stroke-width:1;opacity:.7}
+svg.dg .pv{font-weight:700;font-size:11px}
+.eqs{font-family:var(--mono);font-size:.78rem;text-align:center;color:var(--muted);margin:-4px auto 10px;max-width:520px}
 </style></head>
 <body><div class="wrap"><div id="app">Loading…</div></div>
 <script>const TOPICS=[];
@@ -161,38 +165,67 @@ const DG = (() => {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   // chart({xlabel,ylabel,xmax,ymax,lines:[{p:[[x,y]..],label,c,dash,lx,ly,anchor}],polys:[{p,c,label,lx,ly}],pts:[{x,y,label,g:'xy'|'x'|'y'|'',dx,dy,xt,yt}],texts:[{x,y,t,anchor}],xticks:[{v,t}],yticks:[{v,t}]})
   function chart(o) {
-    const W = o.w || 460, H = o.h || 340, L = 56, R = 26, T = 16, B = 50;
+    const W = o.w || 460, H = o.h || 340, L = 78, R = 26, T = 16, B = 50;
     const xm = o.xmax || 10, ym = o.ymax || 10;
     const X = x => f(L + (W - L - R) * x / xm), Y = y => f(H - B - (H - T - B) * y / ym);
+    const fmt = n => { const r = Math.round(n * 1000) / 1000; return String(r).replace('-', '−'); };
+    const isP = /price|€/i.test(o.ylabel || 'Price'), cur = /€/.test(o.ylabel || '') ? '€' : '';
+    const step = m => { for (const k of [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]) if (m / k <= 9) return k; return 1000; };
+    const pts = o.pts || [];
+    const pxs = pts.filter(p => p.xt && (p.g == null ? 'xy' : p.g).includes('x')), pys = pts.filter(p => p.yt && (p.g == null ? 'xy' : p.g).includes('y'));
     let s = `<svg class="dg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.alt || 'economics diagram')}">`;
+    // numeric axes: faint grid, tick marks and values (skipped where a labelled point already shows its own number)
+    if (!o.xticks) for (let v = 0; v <= xm + 1e-9; v += step(xm)) {
+      s += `<line class="grid" x1="${X(v)}" y1="${T}" x2="${X(v)}" y2="${H - B}"/>`;
+      if (!pxs.some(p => Math.abs(X(p.x) - X(v)) < 34)) s += `<text x="${X(v)}" y="${H - B + 15}" text-anchor="middle" class="small">${fmt(v)}</text>`;
+    }
+    if (!o.yticks) for (let v = 0; v <= ym + 1e-9; v += step(ym)) {
+      s += `<line class="grid" x1="${L}" y1="${Y(v)}" x2="${W - R}" y2="${Y(v)}"/>`;
+      if (!pys.some(p => Math.abs(Y(p.y) - Y(v)) < 14)) s += `<text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" class="small">${cur}${fmt(v)}</text>`;
+    }
     (o.polys || []).forEach(p => {
       s += `<polygon class="f${p.c || 0}" points="${p.p.map(q => X(q[0]) + ',' + Y(q[1])).join(' ')}"/>`;
       if (p.label) s += `<text x="${X(p.lx)}" y="${Y(p.ly)}" text-anchor="middle" class="h">${esc(p.label)}</text>`;
     });
     s += `<path class="ax" d="M${L} ${T - 4} V${H - B} H${W - R + 6}"/>`;
-    s += `<text x="${(L + W - R) / 2}" y="${H - 10}" text-anchor="middle">${esc(o.xlabel || 'Quantity')}</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - 5}" text-anchor="middle">${esc(o.xlabel || 'Quantity')}</text>`;
     s += `<text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle">${esc(o.ylabel || 'Price')}</text>`;
     (o.xticks || []).forEach(t => s += `<text x="${X(t.v)}" y="${H - B + 15}" text-anchor="middle" class="small">${esc(t.t)}</text>`);
     (o.yticks || []).forEach(t => s += `<text x="${L - 6}" y="${Y(t.v) + 4}" text-anchor="end" class="small">${esc(t.t)}</text>`);
+    const eqs = [];
+    const xs = /firm|stall/i.test(o.xlabel || '') ? 'q' : 'Q';
     (o.lines || []).forEach(l => {
       s += `<polyline class="ln c${l.c || 0}" ${l.dash ? 'stroke-dasharray="6 4"' : ''} points="${l.p.map(q => X(q[0]) + ',' + Y(q[1])).join(' ')}"/>`;
       if (l.label) {
         const e = l.p[l.p.length - 1];
         const lx = l.lx != null ? l.lx : e[0], ly = l.ly != null ? l.ly : e[1];
         s += `<text x="${X(lx) + 5}" y="${Y(ly) + 4}" class="h" text-anchor="${l.anchor || 'start'}" style="fill:var(--${['pen', 'amber', 'bad', 'good', 'muted'][l.c || 0]})">${esc(l.label)}</text>`;
+        // straight lines named D, S, MR... get their equation under the chart
+        if (isP && o.eq !== false && l.p.length === 2 && /^(D|S|MR|D\d|S\d)\b/.test(l.label) && l.p[1][0] !== l.p[0][0]) {
+          const m = (l.p[1][1] - l.p[0][1]) / (l.p[1][0] - l.p[0][0]), b = l.p[0][1] - m * l.p[0][0];
+          const slope = Math.abs(m) === 1 ? xs : fmt(Math.abs(m)) + xs;
+          let t = Math.abs(b) < 1e-9 ? (m < 0 ? '−' : '') + slope : fmt(b) + (m < 0 ? ' − ' : ' + ') + slope;
+          if (Math.abs(m) < 1e-9) t = fmt(b);
+          eqs.push(`${l.label.split(' ')[0]}: P = ${t}`);
+        }
       }
     });
-    (o.pts || []).forEach(p => {
+    // stagger neighbouring x-axis value labels onto a second row so they never collide
+    const rowOf = new Map(), lastX = [-999, -999];
+    pxs.slice().sort((a, b) => a.x - b.x).forEach(p => { let r = 0; while (r < 2 && X(p.x) - lastX[r] < 66) r++; r = Math.min(r, 1); lastX[r] = X(p.x); rowOf.set(p, r); });
+    pts.forEach(p => {
       const g = p.g == null ? 'xy' : p.g;
       if (g.includes('x')) s += `<line class="gd" x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(p.x)}" y2="${H - B}"/>`;
       if (g.includes('y')) s += `<line class="gd" x1="${L}" y1="${Y(p.y)}" x2="${X(p.x)}" y2="${Y(p.y)}"/>`;
       s += `<circle class="pt" cx="${X(p.x)}" cy="${Y(p.y)}" r="3.6"/>`;
       if (p.label) s += `<text x="${X(p.x) + (p.dx != null ? p.dx : 7)}" y="${Y(p.y) + (p.dy != null ? p.dy : -7)}">${esc(p.label)}</text>`;
-      if (p.xt && g.includes('x')) s += `<text x="${X(p.x)}" y="${H - B + 15}" text-anchor="middle">${esc(p.xt)}</text>`;
-      if (p.yt && g.includes('y')) s += `<text x="${L - 6}" y="${Y(p.y) + 4}" text-anchor="end">${esc(p.yt)}</text>`;
+      const named = t => /=|≈|^[\d€.]|\d{2}|\d\.\d/.test(t);
+      if (p.xt && g.includes('x')) s += `<text x="${X(p.x)}" y="${H - B + 15 + 12 * (rowOf.get(p) || 0)}" text-anchor="middle" class="pv">${esc(named(p.xt) ? p.xt : p.xt + ' = ' + fmt(p.x))}</text>`;
+      if (p.yt && g.includes('y')) s += `<text x="${L - 6}" y="${Y(p.y) + 4}" text-anchor="end" class="pv">${esc(named(p.yt) ? p.yt : p.yt + ' = ' + cur + fmt(p.y))}</text>`;
     });
     (o.texts || []).forEach(t => s += `<text x="${X(t.x)}" y="${Y(t.y)}" text-anchor="${t.anchor || 'middle'}" ${t.cls ? `class="${t.cls}"` : ''}>${esc(t.t)}</text>`);
-    return s + '</svg>';
+    s += '</svg>';
+    return s + (eqs.length ? `<div class="eqs">${eqs.join(' &nbsp;·&nbsp; ')}</div>` : '') + (o.caption ? `<div class="eqs">${o.caption}</div>` : '');
   }
   // matrix({rowName,colName,rows:[..],cols:[..],cells:[[[a,b],..],..],hl:[[r,c]..],unit})
   function matrix(o) {
@@ -549,7 +582,7 @@ TOPICS.push((() => {
   });
   const csps = () => DG.chart({
     xmax: 12, ymax: 13, xlabel: 'Quantity', ylabel: 'Price (€)', alt: 'consumer and producer surplus',
-    polys: [{ p: [[0, 12], [0, 7], [5, 7]], c: 0, label: 'CS', lx: 1.6, ly: 8.6 }, { p: [[0, 2], [0, 7], [5, 7]], c: 1, label: 'PS', lx: 1.6, ly: 5.4 }],
+    polys: [{ p: [[0, 12], [0, 7], [5, 7]], c: 0, label: 'CS = €12.5', lx: 1.9, ly: 8.6 }, { p: [[0, 2], [0, 7], [5, 7]], c: 1, label: 'PS = €12.5', lx: 1.9, ly: 5.4 }],
     lines: [{ p: [[0, 12], [12, 0]], label: 'D', c: 0, lx: 11.3, ly: 0.9 }, { p: [[0, 2], [10, 12]], label: 'S', c: 1, lx: 9.5, ly: 11.6 }],
     pts: [{ x: 5, y: 7, label: 'E', xt: 'Q*', yt: 'P*' }]
   });
@@ -1297,13 +1330,20 @@ RL.lv.intro = {
 };
 
 /* Real-life layer for Level 2: Consumers, demand & supply. */
+/* Bakery numbers: D1: P = 7 - 0.05Q, D2: P = 8 - 0.05Q (+20 loaves at every price), S: P = 1 + 0.05Q, S2: P = 2.5 + 0.05Q (flour shortage). */
+const bakery = () => DG.chart({
+  xmax: 160, ymax: 8, xlabel: 'Loaves per day', ylabel: 'Price (€ per loaf)', alt: 'bakery demand and supply with numbers',
+  lines: [{ p: [[0, 1], [140, 8]], label: 'S', c: 1, lx: 140, ly: 8 }, { p: [[0, 2.5], [110, 8]], label: 'S2', c: 3, lx: 110, ly: 8 }, { p: [[0, 7], [140, 0]], label: 'D1', c: 0, lx: 140, ly: 0.5 }, { p: [[0, 8], [160, 0]], label: 'D2', c: 2, lx: 160, ly: 0.5 }],
+  pts: [{ x: 60, y: 4, label: 'E1', xt: 'Q1', yt: 'P1' }, { x: 70, y: 4.5, label: 'E2', xt: 'Q2', yt: 'P2' }, { x: 55, y: 5.25, label: 'E3', xt: 'Q3', yt: 'P3' }]
+});
+
 RL.lv.cons = {
   story: {
     title: 'The bakery on Elm Street',
     html: `<p>The Elm Street bakery sells sourdough at <b>€4 a loaf</b> and sells out most mornings around 10am.</p>
-      <p>One day a food blogger raves about it. By 7am there's a queue. The baker nudges the price to €5 and still sells out: more people want the bread at every price. That's a <b>demand shift</b>.</p>
-      <p>Then a flour shortage hits. The baker can only make half as many loaves, so the price creeps to €6. That's a <b>supply shift</b>.</p>
-      <p>The mayor, worried about "bread prices", caps loaves at €3. Result: the bakery makes fewer loaves, the queue starts at 5am, and people who'd happily pay €5 go home with nothing. A price cap doesn't create bread; it creates a queue.</p>
+      <p>One day a food blogger raves about it. By 7am there's a queue. Twenty more people want a loaf at every price, so the baker nudges the price to <b>€4.50</b> and sells <b>70</b> loaves. That's a <b>demand shift</b>.</p>
+      <p>Then a flour shortage hits and every loaf costs more to make. Fewer loaves get baked (<b>55</b>) and the price creeps to <b>€5.25</b>. That's a <b>supply shift</b>.</p>
+      <p>The mayor, worried about "bread prices", caps loaves at €3. At €3 the bakery would only bake <b>10</b> loaves while <b>100</b> people want one: a shortage of 90, the queue starts at 5am, and people who'd happily pay €5 go home with nothing. A price cap doesn't create bread; it creates a queue.</p>
       <p>Meanwhile, nobody cuts back on salt when it goes up 20%: they need it. But if cinema tickets go up 20%, many stay home. How strongly people react to price changes is called <b>elasticity</b>.</p>`,
     tip: 'This level\'s four big ideas are all in the bakery: demand and supply shifts, price caps, elasticity, and how a shopper decides what to buy.'
   },
@@ -1329,7 +1369,9 @@ RL.lv.cons = {
       plain: 'The market price settles where the amount people want equals the amount sellers offer; shocks move it.',
       icon: '🎟️', stitle: 'Picture this',
       story: `<p>A band sells 5,000 tickets at €50 and 20,000 people want one. Too many buyers chasing too few tickets: scalpers start reselling at €200. In a market without a price cap, the price would climb until the number of people willing to pay matches the number of tickets.</p>`,
-      simple: `<ol><li><b>Equilibrium:</b> where demand and supply cross; quantity wanted = quantity offered.</li><li><b>Price too low?</b> More people want it than there is (excess demand) → price rises.</li><li><b>Price too high?</b> More is offered than people want (excess supply) → price falls.</li><li>A <b>shock</b> shifts one curve. Work out WHICH curve and WHICH way, then read off the new price and quantity.</li><li>Two curves shifting at once: one of price or quantity is certain, the other depends on which shift is bigger.</li></ol>`,
+      simple: `<p><b>The bakery in real numbers.</b> At €4 the baker sells 60 loaves and sells out; that is the equilibrium (E1).</p>
+        <table class="t"><tr><th></th><th>Start (E1)</th><th>Blogger raves: demand +20 (E2)</th><th>Then flour shortage: supply falls (E3)</th></tr><tr><td>Price of a loaf</td><td>€4</td><td>€4.50</td><td>€5.25</td></tr><tr><td>Loaves sold</td><td>60</td><td>70</td><td>55</td></tr></table>
+        <ol><li><b>Equilibrium:</b> where demand and supply cross. Quantity wanted = quantity offered.</li><li><b>Too cheap?</b> At €3, demand D1 wants 80 loaves but the bakery offers only 40: excess demand of 40, so the price rises.</li><li><b>Too dear?</b> At €5, shoppers want 40 loaves but the bakery offers 80: excess supply, so the price falls.</li><li><b>Demand shift (blogger):</b> D1 → D2. Price AND quantity both rise (€4 → €4.50, 60 → 70).</li><li><b>Supply shift (flour):</b> S → S2. Price rises but quantity falls (€4.50 → €5.25, 70 → 55).</li><li>Both shifts at once: here price rose for sure; quantity could have gone either way (it depended on which shift was bigger).</li></ol>${bakery()}<div class="eqs">D1: demand before · D2: after the blogger · S: supply · S2: after the flour shortage</div>`,
       jargon: [['Equilibrium', 'balance point of buyers and sellers'], ['Excess demand (shortage)', 'more wanted than available', 'sold-out concert tickets'], ['Excess supply (surplus)', 'more available than wanted', 'unsold sale stock'], ['Shock', 'an unexpected event that shifts a curve', 'frost wiping out a coffee harvest']]
     },
     'cons-c3': {
@@ -1435,14 +1477,65 @@ RL.lv.firms = {
   ]
 };
 
+/* Extra card: why cost curves are U-shaped (real numbers), and why D and S can be straight lines. */
+RL.lv.firms.extraCards = [{
+  after: 'firms-c4',
+  card: (() => {
+    const FC = 8, VC = q => q ** 3 - 6 * q ** 2 + 14 * q, MCf = q => 3 * q * q - 12 * q + 14, ACf = q => q * q - 6 * q + 14 + FC / q;
+    const f1 = n => (Math.round(n * 100) / 100).toString();
+    const rows = [1, 2, 3, 4, 5, 6].map(q => ({ q, vc: VC(q), tc: VC(q) + FC, mc: VC(q) - VC(q - 1), ac: (VC(q) + FC) / q }));
+    const best = rows.reduce((a, b) => (b.ac < a.ac ? b : a));
+    const pts = (fn, a, b, n) => { const o = []; for (let i = 0; i <= n; i++) { const x = a + (b - a) * i / n; o.push([x, fn(x)]); } return o; };
+    const chart = () => DG.chart({
+      xmax: 7, ymax: 24, xlabel: 'Output (batches of 10 cups per hour)', ylabel: 'Cost per batch (€)', alt: 'U-shaped MC and AC with numbers',
+      lines: [{ p: pts(MCf, 0.2, 4.7, 40), label: 'MC', c: 2, lx: 4.7, ly: MCf(4.7) }, { p: pts(ACf, 0.7, 5.6, 40), label: 'AC', c: 0, lx: 5.6, ly: ACf(5.6) }],
+      pts: [{ x: 3.3, y: ACf(3.3), label: '', xt: '3.3', yt: '€7.51', g: 'xy' }],
+      caption: 'Table values: MC (€) 9 → 3 → 3 → 9 → 21 → 39 &nbsp;·&nbsp; AC (€) 17 → 10 → 7.67 → 8 → 10.6 → 15.3.<br>The curves are the smooth version of the same table. The lowest point of AC is at about 3.3 batches (€7.51), exactly where MC crosses it.'
+    });
+    const table = `<table class="t"><tr><th>Batches q</th><th>Variable cost</th><th>Total cost (FC = €8)</th><th>MC (extra cost of this batch)</th><th>AC (TC ÷ q)</th></tr>${rows.map(r => `<tr><td>${r.q}</td><td>€${r.vc}</td><td>€${r.tc}</td><td><b>€${r.mc}</b></td><td>€${f1(r.ac)}</td></tr>`).join('')}</table>`;
+    const wtp = `<table class="t"><tr><th>Friend</th><th>Most they would pay for a gig ticket</th><th>If the price is €40, do they buy?</th></tr><tr><td>Ana</td><td>€50</td><td>yes</td></tr><tr><td>Ben</td><td>€45</td><td>yes</td></tr><tr><td>Cal</td><td>€40</td><td>yes</td></tr><tr><td>Dee</td><td>€35</td><td>no</td></tr><tr><td>Eli</td><td>€30</td><td>no</td></tr></table>`;
+    return {
+      id: 'firms-c4b', sub: 'mcac', title: 'Why are cost curves U-shaped (but demand and supply straight)?',
+      html: `<p><b>Maya\'s cart in real numbers.</b> Output is in batches of 10 cups an hour. Her fixed cost is €8 an hour, and the extra (variable) cost of each batch is below.</p>${table}
+        <p>Look at the <b>MC column</b>: €9, €3, €3, €9, €21, €39. It <b>falls first</b> (Maya alone is slow at everything; with a second and third person each does one job, so extra batches are cheap), then <b>rises</b> (the cart is tiny, people queue for the one machine, overtime kicks in). That is diminishing returns.</p>
+        <p>Now the <b>AC column</b>: €17, €10, €7.67, €8, €10.6, €15.3. Two forces fight:</p>
+        <ul><li><b>Pulling AC down:</b> the €8 fixed cost is shared across more cups (€8 ÷ 1 = €8, but €8 ÷ 4 = €2 per batch). And while MC is below AC, each new batch is cheaper than the average, so the average falls.</li><li><b>Pushing AC up:</b> once MC climbs above AC (from the 4th batch on, MC €9 &gt; AC €7.67), every new batch drags the average up.</li></ul>
+        <p>That tug-of-war is what makes the average cost curve a <b>U</b>, with its bottom (about €${f1(best.ac)} at 3 batches here) exactly where MC crosses AC.</p>${chart()}
+        <p><b>So why are demand and supply lines straight?</b> They mostly aren\'t. Straight lines are a <b>simplification</b> so that the maths stays easy (one slope, one intercept). Real curves are curved. Two good reasons they look like downward lines anyway:</p>
+        <ul><li><b>Demand</b> adds up lots of different people, each with their own "most I would pay". Line up five friends and you get a staircase; with thousands of people the steps blur into a smooth downward line.</li></ul>${wtp}
+        <ul><li><b>Supply</b> is built from many firms\' marginal cost curves (a firm\'s supply curve is its MC curve above AVC). Each of those curves is U-shaped at the bottom and rises steeply at the top, so the market supply line slopes upward too. We draw it straight to keep the maths simple.</li></ul>
+        <div class="note">The key difference: <b>demand and supply describe a whole market</b> (many people, one price). <b>AC and MC describe one firm</b> producing more and more with a fixed setup (cart, kitchen, machine). One firm\'s costs have a U-shape because of fixed costs and diminishing returns; a whole market doesn\'t need one.</div>`,
+      tip: 'If asked "why is AC U-shaped?", write two lines: (1) at low output fixed cost is spread over more units and MC &lt; AC, so AC falls; (2) at high output diminishing returns push MC above AC, so AC rises. MC cuts AC at its lowest point.',
+      check: { type: 'mcq', q: 'At 4 batches Maya\'s average cost is €8. The 5th batch has a marginal cost of €21. What happens to her average cost when she makes the 5th batch?', opts: ['It falls, because fixed cost is spread thinner', 'It rises, because the new batch costs more (€21) than the current average (€8)', 'It stays at €8', 'It becomes €21'], a: 1, why: 'Whenever MC is above AC the average is pulled up. Her AC goes from €8 (4 batches) to €10.6 (5 batches): total cost €53 ÷ 5.' }
+    };
+  })()
+}];
+
 /* Real-life layer for Level 4: Perfect Competition. Story first, plain-English steps, everyday spot-it questions. */
+/* Tomato numbers: 40 stalls; stall MC = 0.2q + 1; fixed cost 10/day -> AC min = €3 at 10 kg. Heatwave adds 300 kg of demand at every price. */
+const tomato = (() => {
+  const AC = q => 0.1 * q + 1 + 10 / q;
+  const market = () => DG.chart({
+    xmax: 800, ymax: 10, xlabel: 'Kilos of tomatoes per day (whole market)', ylabel: 'Price (€ per kg)', alt: 'tomato market with numbers',
+    lines: [{ p: [[0, 1], [800, 5]], label: 'S', c: 1, lx: 800, ly: 5 }, { p: [[100, 0], [800, 3.5]], label: 'S2', c: 3, lx: 800, ly: 3.5 }, { p: [[0, 7], [700, 0]], label: 'D1', c: 0, lx: 700, ly: 0.4 }, { p: [[0, 10], [800, 2]], label: 'D2', c: 2, lx: 800, ly: 2 }],
+    pts: [{ x: 400, y: 3, label: 'E1', xt: 'Q1', yt: 'P1' }, { x: 600, y: 4, label: 'E2', xt: 'Q2', yt: 'P2' }, { x: 700, y: 3, label: 'E3', xt: 'Q3', g: 'x' }]
+  });
+  const stall = () => DG.chart({
+    xmax: 20, ymax: 6, xlabel: 'Kilos per day (Priya\'s stall)', ylabel: 'Price / cost per kg (€)', alt: 'one tomato stall with numbers',
+    polys: [{ p: [[0, AC(15)], [15, AC(15)], [15, 4], [0, 4]], c: 3, label: 'Profit €12.50', lx: 7.5, ly: 3.6 }],
+    lines: [{ p: [[0, 1], [20, 5]], label: 'MC', c: 2, lx: 20, ly: 5 }, { p: Array.from({ length: 36 }, (_, i) => [3 + i * 0.5, AC(3 + i * 0.5)]), label: 'AC', c: 0, lx: 20, ly: 3.5 }, { p: [[0, 3], [20, 3]], label: '', c: 4, dash: true }, { p: [[0, 4], [20, 4]], label: '', c: 4, dash: true }],
+    pts: [{ x: 10, y: 3, xt: 'q', g: 'x', label: '' }, { x: 15, y: 4, xt: 'q', g: 'x', label: '' }]
+  });
+  return { market, stall };
+})();
+
 RL.lv.comp = {
   story: {
     title: 'Saturday at the Elm Street market',
     html: `<p>Every Saturday, forty stalls line up on Elm Street selling tomatoes. They all look the same, taste the same, and cost <b>€3 a kilo</b>.</p>
       <p>Priya runs one stall. One morning she thinks, <i>"I'll charge €3.50 and make more per kilo."</i> Within ten minutes she has sold nothing: shoppers just walk ten steps to the next stall. So Priya goes back to €3. <b>She has no power over the price.</b> The crowd of sellers sets it.</p>
       <p>Then a heatwave hits. Everyone wants salad. Tomatoes sell out fast, shoppers start offering a bit more, and the price at <i>every</i> stall drifts up to €4. Priya's phone buzzes with orders, she brings extra crates, and she earns a lot more than usual.</p>
-      <p>Next month there are fifty-five stalls. Newcomers saw the money being made. With more tomatoes around, the price slides back to €3 and Priya earns a normal living again.</p>
+      <p>Next month there are seventy stalls. Newcomers saw the money being made. With more tomatoes around, the price slides back to €3 and Priya earns a normal living again.</p>
       <p>That whole story <i>is</i> perfect competition: price set by the crowd, profits that attract newcomers, and newcomers that wipe the extra profit out.</p>`,
     tip: 'Perfect competition is the "ideal" market every other level is compared against. If you can retell the tomato story in your own words, you can answer most questions in this level.'
   },
@@ -1476,7 +1569,16 @@ RL.lv.comp = {
       plain: 'When customers suddenly want more, the whole market price goes up, one stall copies the price and sells more, but extra profit attracts new stalls and the price drifts back.',
       icon: '🌡️', stitle: 'Picture this: the heatwave',
       story: `<p>Elm Street market: 40 tomato stalls, €3 a kilo. A heatwave arrives and everyone wants salad.</p><p><b>The market</b> (the whole street) sees shoppers hunting for tomatoes, so prices at every stall creep to €4 and more kilos are sold in total.</p><p><b>One stall (Priya)</b> can't say "I charge €5". She just takes the new €4 price, buys extra crates and sells more. Since €4 is now above her usual cost per kilo, she makes <b>extra profit</b> for now.</p><p><b>A few weeks later</b> newcomers set up stalls to grab the profit. More tomatoes on the street pushes the price back to €3. Priya's profit shrinks back to "normal".</p>`,
-      simple: `<p><b>Two different views of the same event.</b> "Market" = the whole street. "Firm" = one stall.</p><ol><li><b>Event:</b> demand rises (more people want tomatoes at every price). On the market diagram the demand line moves <b>right</b>.</li><li><b>Market, short run:</b> price goes UP, total quantity goes UP.</li><li><b>Firm, short run:</b> the stall's price line (flat, because it's a price taker) moves UP to the new price. The stall makes more (up to where P = MC). Price is now above its average cost, so it earns <b>economic profit</b>.</li><li><b>Long run:</b> outsiders see the profit and join (entry). Market supply moves RIGHT, price falls until it equals the lowest point of average cost (min AC). Profit is back to zero.</li><li><b>If demand falls instead:</b> everything runs backwards: price drops, stalls lose money, some leave (exit), supply moves left, price recovers.</li></ol><p class="muted">"Zero economic profit" is not "no income": the owner still earns what she could have earned elsewhere, because that is counted as a cost.</p>`,
+      simple: `<p><b>Two views of the same event.</b> "Market" = the whole street. "Firm" = one stall (Priya). Here are the real numbers for the tomato heatwave.</p>
+        <table class="t"><tr><th></th><th>Before</th><th>Heatwave (short run)</th><th>A few weeks later (long run)</th></tr>
+        <tr><td>Price per kg</td><td>€3</td><td>€4</td><td>€3</td></tr>
+        <tr><td>Stalls on the street</td><td>40</td><td>40</td><td>70</td></tr>
+        <tr><td>Whole market sells</td><td>400 kg</td><td>600 kg</td><td>700 kg</td></tr>
+        <tr><td>Priya sells</td><td>10 kg</td><td>15 kg</td><td>10 kg</td></tr>
+        <tr><td>Priya\'s extra profit</td><td>€0</td><td>€12.50 a day</td><td>€0</td></tr></table>
+        <ol><li><b>Event:</b> demand rises by 300 kg at every price (D1 → D2 on the market picture: at €3 shoppers now want 700 kg instead of 400).</li><li><b>Market, short run:</b> there aren\'t enough tomatoes at €3, so the price climbs along supply S until buyers and sellers balance at <b>€4 and 600 kg</b> (E1 → E2).</li><li><b>One stall, short run:</b> Priya can\'t set the price, she takes €4. Her extra kilo costs 0.2×q + 1 euros (MC), so she keeps going until that reaches €4: <b>q = 15 kg</b>. Her average cost there is only about €3.17, so each kilo earns about 83c profit: 15 × 0.83 ≈ <b>€12.50 a day</b> (the green box).</li><li><b>Long run:</b> other people see her profit and open 30 more stalls (supply moves right, S → S2). Price slides back to <b>€3</b>; Priya is back to 10 kg and no extra profit, but the market sells more (<b>700 kg</b>).</li></ol>
+        ${tomato.market()}<div class="eqs">D1: demand before · D2: demand after the heatwave · S: supply · S2: supply once the new stalls have opened</div>${tomato.stall()}<div class="eqs">Dashed lines: the €3 and €4 prices. The stall produces where price meets MC.</div>
+        <p class="muted">If demand fell instead, run it backwards: price drops, stalls lose money, some close, supply shifts left, price recovers.</p>`,
       jargon: [['Demand shifts right', 'at every price, more people want the product', 'heatwave and tomatoes'], ['Short run', 'time too short for new firms to arrive', 'this week'], ['Long run', 'time long enough for firms to enter or leave', 'next season'], ['Economic profit', 'profit above what you could earn elsewhere']]
     },
     'comp-c4': {
@@ -1872,6 +1974,7 @@ RL.lv.msp = {
     const r = RL.lv[t.id]; if (!r) return;
     Object.assign(RL.card, r.card || {});
     if (r.story) t.cards.unshift({ id: t.id + '-story', sub: null, title: r.story.title, story: true, html: r.story.html, tip: r.story.tip, check: r.story.check });
+    (r.extraCards || []).forEach(x => { const i = t.cards.findIndex(c => c.id === x.after); t.cards.splice(i + 1, 0, x.card); });
     (r.extra || []).forEach(q => t.questions.push(Object.assign({ real: true }, q)));
   });
   const rank = () => { let r = RANKS[0][1]; RANKS.forEach(x => { if (S.xp >= x[0]) r = x[1]; }); return r; };

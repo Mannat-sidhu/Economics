@@ -1,11 +1,18 @@
 /* Real-life layer for Level 2: Consumers, demand & supply. */
+/* Bakery numbers: D1: P = 7 - 0.05Q, D2: P = 8 - 0.05Q (+20 loaves at every price), S: P = 1 + 0.05Q, S2: P = 2.5 + 0.05Q (flour shortage). */
+const bakery = () => DG.chart({
+  xmax: 160, ymax: 8, xlabel: 'Loaves per day', ylabel: 'Price (€ per loaf)', alt: 'bakery demand and supply with numbers',
+  lines: [{ p: [[0, 1], [140, 8]], label: 'S', c: 1, lx: 140, ly: 8 }, { p: [[0, 2.5], [110, 8]], label: 'S2', c: 3, lx: 110, ly: 8 }, { p: [[0, 7], [140, 0]], label: 'D1', c: 0, lx: 140, ly: 0.5 }, { p: [[0, 8], [160, 0]], label: 'D2', c: 2, lx: 160, ly: 0.5 }],
+  pts: [{ x: 60, y: 4, label: 'E1', xt: 'Q1', yt: 'P1' }, { x: 70, y: 4.5, label: 'E2', xt: 'Q2', yt: 'P2' }, { x: 55, y: 5.25, label: 'E3', xt: 'Q3', yt: 'P3' }]
+});
+
 RL.lv.cons = {
   story: {
     title: 'The bakery on Elm Street',
     html: `<p>The Elm Street bakery sells sourdough at <b>€4 a loaf</b> and sells out most mornings around 10am.</p>
-      <p>One day a food blogger raves about it. By 7am there's a queue. The baker nudges the price to €5 and still sells out: more people want the bread at every price. That's a <b>demand shift</b>.</p>
-      <p>Then a flour shortage hits. The baker can only make half as many loaves, so the price creeps to €6. That's a <b>supply shift</b>.</p>
-      <p>The mayor, worried about "bread prices", caps loaves at €3. Result: the bakery makes fewer loaves, the queue starts at 5am, and people who'd happily pay €5 go home with nothing. A price cap doesn't create bread; it creates a queue.</p>
+      <p>One day a food blogger raves about it. By 7am there's a queue. Twenty more people want a loaf at every price, so the baker nudges the price to <b>€4.50</b> and sells <b>70</b> loaves. That's a <b>demand shift</b>.</p>
+      <p>Then a flour shortage hits and every loaf costs more to make. Fewer loaves get baked (<b>55</b>) and the price creeps to <b>€5.25</b>. That's a <b>supply shift</b>.</p>
+      <p>The mayor, worried about "bread prices", caps loaves at €3. At €3 the bakery would only bake <b>10</b> loaves while <b>100</b> people want one: a shortage of 90, the queue starts at 5am, and people who'd happily pay €5 go home with nothing. A price cap doesn't create bread; it creates a queue.</p>
       <p>Meanwhile, nobody cuts back on salt when it goes up 20%: they need it. But if cinema tickets go up 20%, many stay home. How strongly people react to price changes is called <b>elasticity</b>.</p>`,
     tip: 'This level\'s four big ideas are all in the bakery: demand and supply shifts, price caps, elasticity, and how a shopper decides what to buy.'
   },
@@ -31,7 +38,9 @@ RL.lv.cons = {
       plain: 'The market price settles where the amount people want equals the amount sellers offer; shocks move it.',
       icon: '🎟️', stitle: 'Picture this',
       story: `<p>A band sells 5,000 tickets at €50 and 20,000 people want one. Too many buyers chasing too few tickets: scalpers start reselling at €200. In a market without a price cap, the price would climb until the number of people willing to pay matches the number of tickets.</p>`,
-      simple: `<ol><li><b>Equilibrium:</b> where demand and supply cross; quantity wanted = quantity offered.</li><li><b>Price too low?</b> More people want it than there is (excess demand) → price rises.</li><li><b>Price too high?</b> More is offered than people want (excess supply) → price falls.</li><li>A <b>shock</b> shifts one curve. Work out WHICH curve and WHICH way, then read off the new price and quantity.</li><li>Two curves shifting at once: one of price or quantity is certain, the other depends on which shift is bigger.</li></ol>`,
+      simple: `<p><b>The bakery in real numbers.</b> At €4 the baker sells 60 loaves and sells out; that is the equilibrium (E1).</p>
+        <table class="t"><tr><th></th><th>Start (E1)</th><th>Blogger raves: demand +20 (E2)</th><th>Then flour shortage: supply falls (E3)</th></tr><tr><td>Price of a loaf</td><td>€4</td><td>€4.50</td><td>€5.25</td></tr><tr><td>Loaves sold</td><td>60</td><td>70</td><td>55</td></tr></table>
+        <ol><li><b>Equilibrium:</b> where demand and supply cross. Quantity wanted = quantity offered.</li><li><b>Too cheap?</b> At €3, demand D1 wants 80 loaves but the bakery offers only 40: excess demand of 40, so the price rises.</li><li><b>Too dear?</b> At €5, shoppers want 40 loaves but the bakery offers 80: excess supply, so the price falls.</li><li><b>Demand shift (blogger):</b> D1 → D2. Price AND quantity both rise (€4 → €4.50, 60 → 70).</li><li><b>Supply shift (flour):</b> S → S2. Price rises but quantity falls (€4.50 → €5.25, 70 → 55).</li><li>Both shifts at once: here price rose for sure; quantity could have gone either way (it depended on which shift was bigger).</li></ol>${bakery()}<div class="eqs">D1: demand before · D2: after the blogger · S: supply · S2: after the flour shortage</div>`,
       jargon: [['Equilibrium', 'balance point of buyers and sellers'], ['Excess demand (shortage)', 'more wanted than available', 'sold-out concert tickets'], ['Excess supply (surplus)', 'more available than wanted', 'unsold sale stock'], ['Shock', 'an unexpected event that shifts a curve', 'frost wiping out a coffee harvest']]
     },
     'cons-c3': {

@@ -146,3 +146,7 @@ details.full summary{cursor:pointer;font-weight:700;color:var(--pen)}
 .scn{background:var(--pen-soft);border-radius:10px;padding:9px 14px;margin-bottom:12px}
 .hintbox{background:var(--hl);color:var(--hl-ink);border-radius:10px;padding:9px 14px;margin:8px 0}
 .hintbox[hidden]{display:none}
+
+svg.dg .grid{stroke:var(--rule);stroke-width:1;opacity:.7}
+svg.dg .pv{font-weight:700;font-size:11px}
+.eqs{font-family:var(--mono);font-size:.78rem;text-align:center;color:var(--muted);margin:-4px auto 10px;max-width:520px}
